@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+      PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+   "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+   
+ <mapper namespace="mapper.board">
+<resultMap id="articlesResult" type="articleVO">
+    <result property="lvl" column="lvl" />
+    <result property="articleNO" column="articleNO" />
+    <result property="parentNO" column="parentNO" />
+    <result property="title" column="title" />
+    <result property="content" column="content" />
+    <result property="writeDate" column="writeDate" />
+    <result property="imageFileName" column="imageFileName" />
+  </resultMap> 
+   
+  <resultMap id="imgResult" type="imageVO">
+	  <result property="imageFileNO" column="imageFileNO" />
+	  <result property="articleNO" column="articleNO" />
+	  <result property="imageFileName" column="imageFileName" />
+ </resultMap>
+
+  <select id="selectAllArticlesList" resultMap="articlesResult"   >
+    <![CDATA[
+      SELECT level as lvl, articleNO, parentNO, title, content, writeDate, imageFileName, id
+      from t_board
+      START WITH  parentNO=0
+      CONNECT BY PRIOR articleNO=parentNO 
+      ORDER SIBLINGS BY articleNO DESC		
+    ]]>
+  </select>
+  
+  <!-- 예시 만드는중 -->
+  <select id="selectAllArticlesList2" resultMap="articlesResult"  parameterType="java.util.HashMap" >
+    <![CDATA[
+     select lvl, articleNO, parentNO, title, id, writeDate 
+     from (select ROWNUM as recNum, level as lvl, articleNO, parentNO, title,id,writeDate from t_board 
+     START WITH  parentNO=0 CONNECT BY PRIOR articleNO = parentNO ORDER SIBLINGS BY articleNO DESC)
+ 	 where recNum between (#{section}-1)*100+(#{pageNum}-1)*10+1 and (#{section}-1)*100+#{pageNum}*10	
+    ]]>
+  </select>
+  
+ <!--  <select id="selectAllArticlesList2" resultMap="articlesResult"  parameterType="java.util.HashMap" >
+    <![CDATA[
+     select level,articleNO,parentNO,title,id,writeDate 
+     from from t_board 
+     START WITH  parentNO=0 CONNECT BY PRIOR articleNO = parentNO ORDER SIBLINGS BY articleNO DESC
+ 	 where ROWNUM  between(#{section}-1)*100+(#{pageNum}-1)*10+1 and (#{section}-1)*100+#{pageNum}*10	
+    ]]>
+  </select> -->
+  
+   	<select id="selectToArticles" resultType="int"  >
+		<![CDATA[
+			select count(articleNO) from t_board 	
+		]]>
+	</select>
+  
+	<!--단일이미지 추가  -->
+	 
+<!--   <insert id="insertNewArticle"  parameterType="java.util.Map">
+		<![CDATA[
+			INSERT into t_board(articleNO,  title, content, imageFileName, id)
+			VALUES(#{articleNO},#{title},	#{content}, #{imageFileName},	#{id})
+		]]>      
+	</insert> -->
+	
+  <select id="selectNewArticleNO" resultType="int"  >
+		<![CDATA[
+			SELECT  nvl(max(articleNO), 0) + 1 from t_board		
+		]]>
+	</select>
+	
+  <select id="selectArticle" resultType="articleVO"   parameterType="int">
+    <![CDATA[
+      SELECT * from t_board
+      where articleNO = #{articleNO}		
+    ]]>
+  </select>
+	
+	<delete id="deleteArticle"  parameterType="int">
+    <![CDATA[
+      delete from t_board
+      where articleNO in (
+         SELECT articleNO FROM  t_board
+         START WITH articleNO = #{articleNO}
+         CONNECT BY PRIOR  articleNO = parentNO )
+    ]]>      
+  </delete>
+
+ <!--다중 이미지 추가 SQL문 -->   
+
+    <insert id="insertNewArticle"  parameterType="java.util.Map">
+    <![CDATA[
+      insert into t_board(articleNO, parentNO, id, title, content, imageFileName)
+      values(#{articleNO}, #{parentNO}, #{id}, #{title}, #{content}, null)
+    ]]>      
+  </insert>
+
+
+   <insert id="insertNewImage"  parameterType="java.util.Map">
+    <foreach item="item"  collection="list"   open="INSERT ALL" 
+                  separator=" " close="SELECT * FROM DUAL" >
+      INTO t_imageFile(imageFileNO, imageFileName, articleNO, regDate)
+      VALUES (#{item.imageFileNO}, #{item.imageFileName}, #{item.articleNO}, sysdate)
+    </foreach>
+  </insert>
+  
+  <!--다중 이미지 수정 SQL문 --> 
+	<update id="updateArticle"  parameterType="java.util.Map">
+			update t_board
+			set title=#{title},	 
+			content=#{content}
+			, imageFileName=null
+			where articleNO=#{articleNO}
+	</update>
+	
+	<update id="updateImage"  parameterType="imageVO">
+			update t_imageFile
+			set 
+			imageFileName = #{imageFileName},
+			regDate = sysdate
+			where articleNO=#{articleNO} and imageFileNO=#{imageFileNO}
+	</update>
+
+  <select id="selectNewImageFileNO" resultType="int"  >
+    <![CDATA[
+      SELECT  nvl(max(imageFileNO),0) from t_imageFile		
+    ]]>
+  </select>
+  
+  <select id="selectImageFileNO" resultType="int"  parameterType="int">
+    <![CDATA[
+      SELECT  nvl(min(imageFileNO),0) from t_imageFile where articleNO=#{articleNO}	
+    ]]>
+  </select>
+	
+
+  <select  id="selectImageFileList" resultMap="imgResult" parameterType="int">
+    <![CDATA[
+      SELECT * from t_imageFile
+      where articleNO=#{articleNO}	
+    ]]>
+  </select> 
+ 
+</mapper>  
